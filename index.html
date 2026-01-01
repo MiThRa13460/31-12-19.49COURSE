@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TEAM AGP - Endurance Strategy 24h v18.14</title>
+  <title>TEAM AGP - Endurance Strategy 24h v18.16</title>
   <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -442,7 +442,7 @@
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
     // ========== CONFIGURATION ==========
-    const VER = '18.14', SKEY = 'agp-v18';
+    const VER = '18.17', SKEY = 'agp-v18';
     
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyCPNMbkjte9jY9jMU6Nk3y7sOEOTEn2_6k",
@@ -1171,17 +1171,16 @@
       const defaultTireChange = settings.defaultTireChange !== false;
       const tireChangeEvery = parseInt(settings.tireChangeEvery) || 1;
       
-      // Déterminer le combo actif (meilleure stratégie)
-      const strategies = compareStrategies(settings, pilots);
-      const bestStrat = strategies[0];
+      // UTILISER LES PARAMÈTRES CONFIGURÉS PAR L'UTILISATEUR
+      // tireType et defaultMixture sont les valeurs choisies dans les paramètres
+      const tireType = settings.tireType || 'medium';
+      const mixture = settings.defaultMixture || 'race';
       
-      let tireType, mixture;
-      if (bestStrat) {
-        tireType = bestStrat.tire.id;
-        mixture = bestStrat.mixture.id;
-      } else {
-        tireType = settings.tireType || 'medium';
-        mixture = settings.defaultMixture || 'race';
+      // Vérifier que le combo existe dans activeCombos (sinon warning mais on continue)
+      const comboKey = tireType + '_' + mixture;
+      const activeCombos = settings.activeCombos || [];
+      if (activeCombos.length > 0 && !activeCombos.includes(comboKey)) {
+        console.warn('Combo configuré non actif:', comboKey, '- Combos actifs:', activeCombos);
       }
       
       const pitTime = parseInt(settings.pitStopSec) || 45;
@@ -1468,7 +1467,7 @@
       );
     };
 
-    const BADGE_EMOJIS = ['🏎️', '🏁', '⭐', '🔥', '👀', '👑', '🎯', '💎', '🦊', '🐺', '💩', '🖕', '🤡', '💹', '😈', '🍑', '🍆', '🐔', '🦄', '💽', '🦂', '🦋', '🐂', 'JR', 'LeFa', 'Taz', 'Ricou', 'NoNo', 'ZinC', 'MV', 'GB', 'Thib', 'Clem', 'FaFa', 'KV'];
+    const BADGE_EMOJIS = ['🏎️', '🏁', '⭐', '🔥', '👀', '👑', '🎯', '💎', '🦊', '🐺', '💩', '🖕', '🤡', '💹', '😈', '🍑', '🍆', '🐔', '🦄', '💽', '🦂', '🦋', '🐂', 'JR', 'LeFa', 'Taz', 'Ricou', 'NoNo', 'ZinC', 'MV', 'GB', 'Thib', 'Clem', 'FaFa', 'KV', 'LoLo', 'PaPy', 'JaNo', 'JiP'];
 
     const createPilots = name => (TEAM_PILOTS[name] || []).map((n, i) => ({ id: uid(), name: n, position: POSITIONS[i], color: COLORS[i], badgeGlow: 0, badgeEmoji: '', rowOpacity: 2, lapTime: '1:48.500', active: true, avgLapTime: null, totalStintTime: 0 }));
     
@@ -1720,6 +1719,26 @@
         // AVERAGE STINT TIME
         const avgStintSec = ts.realTimeSec / (ts.completedStints || 1);
         
+        // STORIES BY PILOT - grouper les stories par pilote
+        const allStories = ts.team.stories || [];
+        const storiesByPilot = {};
+        allStories.forEach(s => {
+          if (s.pilotId) {
+            if (!storiesByPilot[s.pilotId]) {
+              storiesByPilot[s.pilotId] = { pilotName: s.pilotName, stories: [] };
+            }
+            storiesByPilot[s.pilotId].stories.push(s);
+          }
+        });
+        
+        // PILOT DETAILED STATS - ajouter les stories au pilotStats
+        const pilotStatsWithStories = ts.pilotStats.map(ps => ({
+          ...ps,
+          stories: storiesByPilot[ps.pilot.id]?.stories || [],
+          nightStints: nightStints.filter(s => s.pilotId === ps.pilot.id && s.completed).length,
+          incidents: stints.filter(s => s.pilotId === ps.pilot.id && s.incidentTime > 0).reduce((sum, s) => sum + (s.incidentTime || 0), 0)
+        }));
+        
         return {
           teamName: ts.team.name,
           totalLaps: ts.completedLaps,
@@ -1732,8 +1751,9 @@
           mvpLaps: mvp?.laps,
           mvpTime: mvp?.timeSec ? formatDur(mvp.timeSec) : null,
           nightHero: nightHero?.pilot?.name,
-          pilotStats: ts.pilotStats,
-          stories: ts.team.stories || [],
+          pilotStats: pilotStatsWithStories,
+          stories: allStories,
+          storiesByPilot: storiesByPilot,
           // NEW STATS
           bestStintPilot: bestStint?.pilotName,
           bestStintTime: bestStint?.realStintTime,
@@ -1744,7 +1764,8 @@
           maxLapsStintPilot: maxLapsStint?.pilotName,
           totalFuel: totalFuel,
           avgStintTime: formatDur(avgStintSec),
-          totalPilots: ts.pilotStats.length
+          totalPilots: ts.pilotStats.length,
+          pilots: ts.team.pilots
         };
       };
       
@@ -1864,16 +1885,52 @@
                 </div>
               </div>
               
+              {/* SECTION STORIES AMÉLIORÉE */}
               {showReport.stories.length > 0 && (
-                <div style={{padding:'12px',background:'rgba(0,0,0,0.3)',borderRadius:'10px'}}>
-                  <div style={{fontSize:'11px',color:'var(--cyan)',marginBottom:'8px'}}>💬 MOMENTS FORTS</div>
-                  <div style={{display:'flex',flexDirection:'column',gap:'4px',maxHeight:'100px',overflowY:'auto'}}>
-                    {showReport.stories.slice(-5).map(s => (
-                      <div key={s.id} style={{fontSize:'11px',color:'var(--text)'}}>
-                        <span className="mono" style={{color:'var(--text-muted)',marginRight:'8px'}}>{new Date(s.time).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}</span>
-                        {s.text}
-                      </div>
-                    ))}
+                <div style={{padding:'12px',background:'rgba(0,0,0,0.3)',borderRadius:'10px',marginTop:'12px'}}>
+                  <div style={{fontSize:'11px',color:'var(--cyan)',marginBottom:'8px',fontWeight:'700'}}>💬 ÉVÉNEMENTS PAR PILOTE ({showReport.stories.length} total)</div>
+                  
+                  {/* Stories par pilote */}
+                  {Object.keys(showReport.storiesByPilot).length > 0 && (
+                    <div style={{display:'grid',gap:'8px',marginBottom:'10px'}}>
+                      {Object.entries(showReport.storiesByPilot).map(([pilotId, data]) => {
+                        const pilot = showReport.pilots?.find(p => p.id === pilotId);
+                        return (
+                          <div key={pilotId} style={{padding:'8px',background:'rgba(0,0,0,0.3)',borderRadius:'8px',borderLeft:`3px solid ${pilot?.color || 'var(--cyan)'}`}}>
+                            <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'6px'}}>
+                              {pilot && <PilotBadge pilot={pilot} size="sm" />}
+                              <span style={{fontSize:'11px',fontWeight:'700',color:pilot?.color || 'var(--cyan)'}}>{data.pilotName}</span>
+                              <span style={{fontSize:'9px',color:'var(--text-muted)',marginLeft:'auto'}}>{data.stories.length} événements</span>
+                            </div>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+                              {data.stories.slice(0, 3).map(s => {
+                                const catInfo = STORY_CATEGORIES.find(c => c.id === s.category) || STORY_CATEGORIES[0];
+                                return (
+                                  <span key={s.id} style={{fontSize:'9px',padding:'2px 6px',background:catInfo.color + '30',color:catInfo.color,borderRadius:'8px'}}>{catInfo.icon} {s.text.substring(0, 30)}{s.text.length > 30 ? '...' : ''}</span>
+                                );
+                              })}
+                              {data.stories.length > 3 && <span style={{fontSize:'9px',color:'var(--text-muted)'}}>+{data.stories.length - 3}</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {/* Timeline des stories récentes */}
+                  <div style={{fontSize:'10px',color:'var(--text-muted)',marginBottom:'6px'}}>📋 Derniers événements</div>
+                  <div style={{display:'flex',flexDirection:'column',gap:'4px',maxHeight:'80px',overflowY:'auto'}}>
+                    {showReport.stories.slice(-5).map(s => {
+                      const catInfo = STORY_CATEGORIES.find(c => c.id === s.category) || STORY_CATEGORIES[0];
+                      return (
+                        <div key={s.id} style={{fontSize:'10px',color:'var(--text)',display:'flex',alignItems:'center',gap:'6px'}}>
+                          <span style={{fontSize:'12px'}}>{catInfo.icon}</span>
+                          <span className="mono" style={{color:'var(--text-muted)',fontSize:'9px'}}>{new Date(s.time).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}</span>
+                          {s.pilotName && <span style={{fontSize:'9px',color:'var(--cyan)'}}>@{s.pilotName}</span>}
+                          <span style={{flex:1}}>{s.text}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2347,7 +2404,7 @@
                 </div>
                 <div style={{display:'flex',gap:'6px'}}>
                   <button className="btn btn-success btn-sm" style={{padding:'6px 10px',fontSize:'11px'}} onClick={handleScreenshot} title="Capture d'écran">📸</button>
-                  {canEdit && <button className="btn btn-primary btn-sm" style={{padding:'6px 10px',fontSize:'11px'}} onClick={onGenerate} disabled={!isCreator && !settings?.validated}>⚡</button>}
+                  {canEdit && <button className="btn btn-primary btn-sm" style={{padding:'6px 10px',fontSize:'11px'}} onClick={onGenerate} disabled={!isCreator && (!settings?.validated || chronoState?.elapsed > 0 || chronoState?.isRunning)}>⚡</button>}
                   {canEdit && <button className="btn btn-ghost btn-sm" style={{padding:'6px 10px',fontSize:'11px'}} onClick={onRecalc} disabled={!stints?.length}>🔄</button>}
                 </div>
               </div>
@@ -2502,20 +2559,37 @@
     const TeamStories = ({ team, teams, canEdit, updateTeam }) => {
       const [newStory, setNewStory] = useState('');
       const [category, setCategory] = useState('moment');
-      
+      const [selectedPilot, setSelectedPilot] = useState(''); // Pilote associé à la story
       const [filterCat, setFilterCat] = useState('all');
+      const [filterPilot, setFilterPilot] = useState('all');
+      const [viewMode, setViewMode] = useState('timeline'); // 'timeline' ou 'byPilot'
       
       // Collecter TOUTES les stories de toutes les équipes
       const allStories = teams.flatMap(t => 
         (t.stories || []).map(s => ({ ...s, teamName: t.name, teamId: t.id }))
       ).sort((a, b) => new Date(b.time) - new Date(a.time));
       
+      // Pilotes actifs de l'équipe courante
+      const activePilots = (team?.pilots || []).filter(p => p.active !== false && p.name);
+      
       // Filtrer
       const filteredStories = allStories.filter(s => {
-        
         if (filterCat !== 'all' && s.category !== filterCat) return false;
+        if (filterPilot !== 'all' && s.pilotId !== filterPilot) return false;
         return true;
       });
+      
+      // Stories groupées par pilote (pour vue byPilot)
+      const storiesByPilot = useMemo(() => {
+        const byPilot = {};
+        allStories.forEach(s => {
+          if (s.pilotId) {
+            if (!byPilot[s.pilotId]) byPilot[s.pilotId] = [];
+            byPilot[s.pilotId].push(s);
+          }
+        });
+        return byPilot;
+      }, [allStories]);
       
       const addStory = () => {
         if (!newStory.trim() || !canEdit) return;
@@ -2524,10 +2598,13 @@
           text: newStory.trim(),
           time: new Date().toISOString(),
           author: team?.name || 'Équipe',
-          category: category
+          category: category,
+          pilotId: selectedPilot || null,
+          pilotName: selectedPilot ? activePilots.find(p => p.id === selectedPilot)?.name : null
         };
         updateTeam({ stories: [...(team?.stories || []), story] });
         setNewStory('');
+        setSelectedPilot('');
       };
       
       const deleteStory = (id) => {
@@ -2537,17 +2614,30 @@
       
       const getCatInfo = (catId) => STORY_CATEGORIES.find(c => c.id === catId) || STORY_CATEGORIES[0];
       
+      // Trouver le pilote dans toutes les équipes
+      const findPilotInTeams = (pilotId) => {
+        for (const t of teams) {
+          const pilot = (t.pilots || []).find(p => p.id === pilotId);
+          if (pilot) return pilot;
+        }
+        return null;
+      };
+      
       return (
         <div className="card" style={{padding:'16px'}}>
           <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px'}}>
             <span style={{fontSize:'28px'}}>💬</span>
             <div style={{flex:1}}>
-              <div style={{fontWeight:'800',fontSize:'16px',color:'var(--cyan)'}}>STORIES - TOUTES ÉQUIPES</div>
-              <div style={{fontSize:'10px',color:'var(--text-muted)'}}>{allStories.length} stories au total</div>
+              <div style={{fontWeight:'800',fontSize:'16px',color:'var(--cyan)'}}>STORIES - ÉVÉNEMENTS COURSE</div>
+              <div style={{fontSize:'10px',color:'var(--text-muted)'}}>{allStories.length} stories • {Object.keys(storiesByPilot).length} pilotes mentionnés</div>
+            </div>
+            <div style={{display:'flex',gap:'4px'}}>
+              <button onClick={() => setViewMode('timeline')} className={viewMode === 'timeline' ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} style={{padding:'4px 8px',fontSize:'10px'}}>📋 Timeline</button>
+              <button onClick={() => setViewMode('byPilot')} className={viewMode === 'byPilot' ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} style={{padding:'4px 8px',fontSize:'10px'}}>👤 Par Pilote</button>
             </div>
           </div>
           
-          {/* FILTRES PAR THÈME */}
+          {/* FILTRES */}
           <div style={{display:'flex',gap:'6px',marginBottom:'16px',flexWrap:'wrap',alignItems:'center'}}>
             <button onClick={() => setFilterCat('all')} style={{padding:'5px 12px',borderRadius:'20px',fontSize:'11px',cursor:'pointer',border: filterCat === 'all' ? '2px solid var(--cyan)' : '1px solid var(--border)',background: filterCat === 'all' ? 'rgba(6,182,212,0.2)' : 'transparent',color: filterCat === 'all' ? 'var(--cyan)' : 'var(--text-muted)'}}>Tout ({allStories.length})</button>
             {STORY_CATEGORIES.map(c => {
@@ -2558,12 +2648,18 @@
                 </button>
               );
             })}
+            {viewMode === 'timeline' && activePilots.length > 0 && (
+              <select className="input" style={{padding:'4px 8px',fontSize:'10px',width:'auto',marginLeft:'auto'}} value={filterPilot} onChange={e => setFilterPilot(e.target.value)}>
+                <option value="all">Tous pilotes</option>
+                {activePilots.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            )}
           </div>
           
           {/* AJOUT STORY */}
           {canEdit && (
             <div style={{marginBottom:'16px',padding:'12px',background:'rgba(0,0,0,0.3)',borderRadius:'10px'}}>
-              <div style={{display:'flex',gap:'6px',marginBottom:'10px',flexWrap:'wrap'}}>
+              <div style={{display:'flex',gap:'6px',marginBottom:'10px',flexWrap:'wrap',alignItems:'center'}}>
                 {STORY_CATEGORIES.map(c => (
                   <button key={c.id} onClick={() => setCategory(c.id)} style={{
                     padding:'4px 10px',
@@ -2575,12 +2671,19 @@
                     color: category === c.id ? c.color : 'var(--text-muted)'
                   }}>{c.icon} {c.label}</button>
                 ))}
+                <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:'4px'}}>
+                  <span style={{fontSize:'10px',color:'var(--text-muted)'}}>👤</span>
+                  <select className="input" style={{padding:'4px 8px',fontSize:'10px',width:'auto'}} value={selectedPilot} onChange={e => setSelectedPilot(e.target.value)}>
+                    <option value="">Aucun pilote</option>
+                    {activePilots.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
               </div>
               <div style={{display:'flex',gap:'8px'}}>
                 <input 
                   className="input" 
                   style={{flex:1,padding:'10px 14px',fontSize:'12px'}}
-                  placeholder={"✏️ " + getCatInfo(category).label + "..."}
+                  placeholder={"✏️ " + getCatInfo(category).label + (selectedPilot ? " - " + activePilots.find(p => p.id === selectedPilot)?.name : "") + "..."}
                   value={newStory}
                   onChange={e => setNewStory(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addStory()}
@@ -2593,7 +2696,8 @@
             </div>
           )}
           
-          {filteredStories.length > 0 ? (
+          {/* VUE TIMELINE */}
+          {viewMode === 'timeline' && filteredStories.length > 0 && (
             <div style={{display:'flex',flexDirection:'column',gap:'8px',maxHeight:'450px',overflowY:'auto'}}>
               {filteredStories.map(story => {
                 const time = new Date(story.time);
@@ -2602,6 +2706,7 @@
                 const isRecent = (Date.now() - time.getTime()) < 300000;
                 const catInfo = getCatInfo(story.category);
                 const isMyTeam = story.teamId === team?.id;
+                const storyPilot = story.pilotId ? findPilotInTeams(story.pilotId) : null;
                 return (
                   <div key={story.id} style={{
                     display:'flex',
@@ -2617,10 +2722,19 @@
                       <div className="mono" style={{fontSize:'9px',color:'var(--text-muted)'}}>{timeStr}</div>
                     </div>
                     <div style={{flex:1}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'4px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'4px',flexWrap:'wrap'}}>
                         <span style={{fontSize:'10px',fontWeight:'700',color: isMyTeam ? 'var(--cyan)' : 'var(--text-muted)'}}>{story.teamName}</span>
                         <span style={{fontSize:'8px',color:'var(--text-dim)'}}>•</span>
                         <span style={{fontSize:'9px',color:catInfo.color}}>{catInfo.label}</span>
+                        {storyPilot && (
+                          <>
+                            <span style={{fontSize:'8px',color:'var(--text-dim)'}}>•</span>
+                            <div style={{display:'flex',alignItems:'center',gap:'3px'}}>
+                              <PilotBadge pilot={storyPilot} size="sm" />
+                              <span style={{fontSize:'9px',fontWeight:'600',color:storyPilot.color}}>{story.pilotName}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div style={{fontSize:'12px',color:'var(--text)',lineHeight:'1.4'}}>{story.text}</div>
                     </div>
@@ -2631,7 +2745,61 @@
                 );
               })}
             </div>
-          ) : (
+          )}
+          
+          {/* VUE PAR PILOTE */}
+          {viewMode === 'byPilot' && (
+            <div style={{display:'flex',flexDirection:'column',gap:'16px',maxHeight:'500px',overflowY:'auto'}}>
+              {activePilots.map(pilot => {
+                const pilotStories = (storiesByPilot[pilot.id] || []).filter(s => filterCat === 'all' || s.category === filterCat);
+                if (pilotStories.length === 0) return null;
+                return (
+                  <div key={pilot.id} style={{padding:'12px',background:'rgba(0,0,0,0.3)',borderRadius:'10px',border:`2px solid ${pilot.color}40`}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px',paddingBottom:'8px',borderBottom:`1px solid ${pilot.color}30`}}>
+                      <PilotBadge pilot={pilot} size="lg" />
+                      <div>
+                        <div style={{fontSize:'14px',fontWeight:'700',color:pilot.color}}>{pilot.name}</div>
+                        <div style={{fontSize:'10px',color:'var(--text-muted)'}}>{pilotStories.length} événements</div>
+                      </div>
+                      <div style={{marginLeft:'auto',display:'flex',gap:'4px'}}>
+                        {STORY_CATEGORIES.map(c => {
+                          const count = pilotStories.filter(s => s.category === c.id).length;
+                          if (count === 0) return null;
+                          return <span key={c.id} style={{padding:'2px 6px',borderRadius:'10px',fontSize:'9px',background:c.color + '30',color:c.color}}>{c.icon}{count}</span>;
+                        })}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                      {pilotStories.slice(0, 5).map(story => {
+                        const time = new Date(story.time);
+                        const timeStr = time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                        const catInfo = getCatInfo(story.category);
+                        return (
+                          <div key={story.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'6px 8px',background:'rgba(0,0,0,0.2)',borderRadius:'6px',fontSize:'11px'}}>
+                            <span style={{fontSize:'14px'}}>{catInfo.icon}</span>
+                            <span className="mono" style={{fontSize:'9px',color:'var(--text-muted)',minWidth:'40px'}}>{timeStr}</span>
+                            <span style={{color:'var(--text)',flex:1}}>{story.text}</span>
+                          </div>
+                        );
+                      })}
+                      {pilotStories.length > 5 && (
+                        <div style={{textAlign:'center',fontSize:'10px',color:'var(--text-muted)',padding:'4px'}}>+{pilotStories.length - 5} autres événements</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {Object.keys(storiesByPilot).length === 0 && (
+                <div style={{textAlign:'center',padding:'30px',color:'var(--text-dim)'}}>
+                  <div style={{fontSize:'40px',marginBottom:'10px'}}>👤</div>
+                  <p style={{fontSize:'12px'}}>Aucune story associée à un pilote</p>
+                  <p style={{fontSize:'10px',color:'var(--text-muted)'}}>Sélectionnez un pilote lors de l'ajout</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {viewMode === 'timeline' && filteredStories.length === 0 && (
             <div style={{textAlign:'center',padding:'30px',color:'var(--text-dim)'}}>
               <div style={{fontSize:'40px',marginBottom:'10px'}}>📝</div>
               <p style={{fontSize:'12px'}}>Aucune story {filterCat !== 'all' ? 'avec ces filtres' : 'encore'}...</p>
@@ -2846,7 +3014,7 @@
             return saved.map(t => {
               const baseSettings = createSettings();
               const savedSettings = t.settings || {};
-              return { ...t, pilots: (t.pilots || []).map(p => ({ ...p, lapTime: p.lapTime || '1:48.500', active: p.active !== false })), settings: { ...baseSettings, ...savedSettings, comboTimes: { ...baseSettings.comboTimes, ...(savedSettings.comboTimes || {}) }, comboCons: { ...baseSettings.comboCons, ...(savedSettings.comboCons || {}) }, tireChangeSec: savedSettings.tireChangeSec || baseSettings.tireChangeSec, defaultTireChange: savedSettings.defaultTireChange !== undefined ? savedSettings.defaultTireChange : baseSettings.defaultTireChange, tireChangeEvery: savedSettings.tireChangeEvery || baseSettings.tireChangeEvery, activeCombos: savedSettings.activeCombos || baseSettings.activeCombos }, stints: (t.stints || []).map(s => ({ ...s, tireChange: s.tireChange !== undefined ? s.tireChange : true })) };
+              return { ...t, pilots: (t.pilots || []).map(p => ({ ...p, lapTime: p.lapTime || '1:48.500', active: p.active !== false })), settings: { ...baseSettings, ...savedSettings, comboTimes: { ...baseSettings.comboTimes, ...(savedSettings.comboTimes || {}) }, comboCons: { ...baseSettings.comboCons, ...(savedSettings.comboCons || {}) }, pilotComboTimes: { ...(savedSettings.pilotComboTimes || {}) }, pilotComboCons: { ...(savedSettings.pilotComboCons || {}) }, tireChangeSec: savedSettings.tireChangeSec || baseSettings.tireChangeSec, defaultTireChange: savedSettings.defaultTireChange !== undefined ? savedSettings.defaultTireChange : baseSettings.defaultTireChange, tireChangeEvery: savedSettings.tireChangeEvery || baseSettings.tireChangeEvery, activeCombos: savedSettings.activeCombos || baseSettings.activeCombos, tireType: savedSettings.tireType || baseSettings.tireType, defaultMixture: savedSettings.defaultMixture || baseSettings.defaultMixture, tankCapacity: savedSettings.tankCapacity || baseSettings.tankCapacity, tanksPerStint: savedSettings.tanksPerStint || baseSettings.tanksPerStint, pitStopSec: savedSettings.pitStopSec || baseSettings.pitStopSec, pitLaneTime: savedSettings.pitLaneTime || baseSettings.pitLaneTime, durationHours: savedSettings.durationHours || baseSettings.durationHours, raceStartTime: savedSettings.raceStartTime || baseSettings.raceStartTime }, stints: (t.stints || []).map(s => ({ ...s, tireChange: s.tireChange !== undefined ? s.tireChange : true })) };
             });
           }
         } catch (e) { console.warn('Erreur chargement teams:', e); }
@@ -2929,7 +3097,7 @@
               setTeams(prevTeams => {
                 const teamIdx = prevTeams.findIndex(t => t.name === teamName); if (teamIdx === -1) return prevTeams;
                 const baseSettings = createSettings(); const remoteSettings = remoteTeam.settings || {};
-                const updatedTeam = { ...remoteTeam, pilots: remoteTeam.pilots || [], stints: (remoteTeam.stints || []).map(s => ({ ...s, tireChange: s.tireChange !== undefined ? s.tireChange : true })), settings: { ...baseSettings, ...remoteSettings, comboTimes: { ...baseSettings.comboTimes, ...(remoteSettings.comboTimes || {}) }, comboCons: { ...baseSettings.comboCons, ...(remoteSettings.comboCons || {}) }, tireChangeSec: remoteSettings.tireChangeSec || baseSettings.tireChangeSec, defaultTireChange: remoteSettings.defaultTireChange !== undefined ? remoteSettings.defaultTireChange : baseSettings.defaultTireChange, tireChangeEvery: remoteSettings.tireChangeEvery || baseSettings.tireChangeEvery, activeCombos: remoteSettings.activeCombos || baseSettings.activeCombos } };
+                const updatedTeam = { ...remoteTeam, pilots: remoteTeam.pilots || [], stints: (remoteTeam.stints || []).map(s => ({ ...s, tireChange: s.tireChange !== undefined ? s.tireChange : true })), settings: { ...baseSettings, ...remoteSettings, comboTimes: { ...baseSettings.comboTimes, ...(remoteSettings.comboTimes || {}) }, comboCons: { ...baseSettings.comboCons, ...(remoteSettings.comboCons || {}) }, pilotComboTimes: { ...(remoteSettings.pilotComboTimes || {}) }, pilotComboCons: { ...(remoteSettings.pilotComboCons || {}) }, tireChangeSec: remoteSettings.tireChangeSec || baseSettings.tireChangeSec, defaultTireChange: remoteSettings.defaultTireChange !== undefined ? remoteSettings.defaultTireChange : baseSettings.defaultTireChange, tireChangeEvery: remoteSettings.tireChangeEvery || baseSettings.tireChangeEvery, activeCombos: remoteSettings.activeCombos || baseSettings.activeCombos, tireType: remoteSettings.tireType || baseSettings.tireType, defaultMixture: remoteSettings.defaultMixture || baseSettings.defaultMixture, tankCapacity: remoteSettings.tankCapacity || baseSettings.tankCapacity, tanksPerStint: remoteSettings.tanksPerStint || baseSettings.tanksPerStint, pitStopSec: remoteSettings.pitStopSec || baseSettings.pitStopSec, pitLaneTime: remoteSettings.pitLaneTime || baseSettings.pitLaneTime, durationHours: remoteSettings.durationHours || baseSettings.durationHours, raceStartTime: remoteSettings.raceStartTime || baseSettings.raceStartTime } };
                 const newTeams = [...prevTeams]; newTeams[teamIdx] = updatedTeam; return newTeams;
               });
               setSyncStatus('connected');
@@ -2975,10 +3143,7 @@
       
       const handleGenerate = () => {
         if (!team || !team.settings) return;
-        if (!team.pilotsValidated) { setConfirm({ title: 'Équipage non validé', message: 'Validez d\'abord l\'équipage dans l\'onglet Équipage.', onConfirm: () => { setMainTab('pilots'); setConfirm(null); } }); return; }
         if (!team.settings.validated) { setConfirm({ title: 'Paramètres non validés', message: 'Validez d\'abord les paramètres.', onConfirm: () => { setMainTab('settings'); setConfirm(null); } }); return; }
-        const activePilots = (team.pilots || []).filter(p => p?.name?.trim() && p.active !== false);
-        if (activePilots.length === 0) { setConfirm({ title: '⚠️ Aucun pilote actif', message: 'Ajoutez au moins un pilote avec un nom dans l\'onglet Équipage.', onConfirm: () => { setMainTab('pilots'); setConfirm(null); } }); return; }
         const completedStints = (team.stints || []).filter(s => s.completed);
         const isRaceRunning = chronoState.isRunning || chronoState.elapsed > 0;
         if (isRaceRunning && completedStints.length > 0) {
@@ -3024,9 +3189,7 @@
           return;
         }
         const startTime = team.settings.raceStartTime || '14:00'; const [startH, startM] = startTime.split(':').map(Number); const raceStart = new Date(); raceStart.setHours(startH, startM, 0, 0);
-        const newStints = genPlanning(team.pilots || [], team.settings);
-        if (newStints.length === 0) { setConfirm({ title: '⚠️ Erreur de génération', message: 'Impossible de générer le planning. Vérifiez les paramètres (temps au tour, consommation, etc.).', onConfirm: () => { setMainTab('settings'); setConfirm(null); } }); return; }
-        updateTeam({ stints: newStints, raceStartISO: raceStart.toISOString() });
+        const newStints = genPlanning(team.pilots || [], team.settings); updateTeam({ stints: newStints, raceStartISO: raceStart.toISOString() });
       };
       
       // Fonction Revenir - protège les stints complétés
@@ -3147,8 +3310,81 @@
       const totalSec = (team?.settings?.durationHours || 24) * 3600;
       const progress = Math.min(100, (chronoState.elapsed / totalSec) * 100);
       const { stint: currentStint } = getNextStint(team?.stints || [], chronoState.elapsed);
-      const strategies = compareStrategies(team?.settings || createSettings(), team?.pilots || []);
-      const bestStrategy = strategies[0];
+      
+      // Calculer la stratégie pour le combo CONFIGURÉ par l'utilisateur (settings.tireType + settings.defaultMixture)
+      const configuredComboKey = (team?.settings?.tireType || 'medium') + '_' + (team?.settings?.defaultMixture || 'race');
+      const configuredTire = TIRES.find(t => t.id === (team?.settings?.tireType || 'medium')) || TIRES[1];
+      const configuredMix = MIXTURES.find(m => m.id === (team?.settings?.defaultMixture || 'race')) || MIXTURES[1];
+      
+      // Chercher le temps et conso pour ce combo (priorité: moyenne pilotes > comboTimes)
+      let configuredTimeMs = null, configuredCons = null;
+      const configSettings = team?.settings || createSettings();
+      const configPilots = team?.pilots || [];
+      
+      if (configPilots && configSettings?.pilotComboTimes) {
+        const activePilots = configPilots.filter(p => p.active !== false);
+        const pilotTimes = activePilots.map(p => {
+          const timeStr = configSettings.pilotComboTimes[p.id + '_' + configuredComboKey];
+          return timeStr ? parseTimeToMs(timeStr) : 0;
+        });
+        const validTimes = pilotTimes.filter(t => t > 0);
+        if (validTimes.length > 0) {
+          const refTimeMs = Math.max(...validTimes);
+          const allMs = pilotTimes.map(t => t > 0 ? t : refTimeMs);
+          configuredTimeMs = allMs.reduce((a, b) => a + b, 0) / allMs.length;
+        }
+      }
+      if (!configuredTimeMs) {
+        const comboTimeValue = configSettings?.comboTimes?.[configuredComboKey];
+        if (comboTimeValue && !comboTimeValue.toString().includes('/')) {
+          configuredTimeMs = parseLapTime(comboTimeValue);
+        }
+      }
+      
+      if (configPilots && configSettings?.pilotComboCons) {
+        const activePilots = configPilots.filter(p => p.active !== false);
+        const pilotCons = activePilots.map(p => {
+          const consStr = configSettings.pilotComboCons[p.id + '_' + configuredComboKey];
+          return consStr ? parseFloat(consStr) : 0;
+        });
+        const validCons = pilotCons.filter(c => c > 0);
+        if (validCons.length > 0) {
+          const refCons = Math.max(...validCons);
+          const allCons = pilotCons.map(c => c > 0 ? c : refCons);
+          configuredCons = allCons.reduce((a, b) => a + b, 0) / allCons.length;
+        }
+      }
+      if (!configuredCons) {
+        const comboConsValue = configSettings?.comboCons?.[configuredComboKey];
+        if (comboConsValue && !comboConsValue.toString().includes('/')) {
+          configuredCons = parseFloat(comboConsValue);
+        }
+      }
+      
+      // Calculer la stratégie configurée
+      let bestStrategy = null;
+      if (configuredTimeMs > 0 && configuredCons > 0) {
+        bestStrategy = calculateStrategy24h({
+          temps_tour_ms: configuredTimeMs,
+          conso_par_tour: configuredCons,
+          tank_capacity: parseFloat(configSettings.tankCapacity) || 70,
+          pit_time: parseInt(configSettings.pitStopSec) || 45,
+          pit_lane_time: parseInt(configSettings.pitLaneTime) || 30,
+          tire_change_time: parseInt(configSettings.tireChangeSec) || 25,
+          default_tire_change: configSettings.defaultTireChange !== false,
+          tire_change_every: parseInt(configSettings.tireChangeEvery) || 1,
+          duree_course: (parseInt(configSettings.durationHours) || 24) * 3600,
+          tire: configuredTire,
+          mixture: configuredMix,
+          comboKey: configuredComboKey
+        });
+      }
+      
+      // Fallback: utiliser compareStrategies si pas de données pour le combo configuré
+      if (!bestStrategy) {
+        const strategies = compareStrategies(team?.settings || createSettings(), team?.pilots || []);
+        bestStrategy = strategies[0];
+      }
 
       const tabs = [['settings','⚙️ Params','Configuration de la course: durée, essence, pneus, stands'],['planning','📋 Planning','Liste des relais avec pilotes et horaires'],['stories','💬 Stories','Journal de course partagé avec toute l\'équipe'],['stats','🎯 Stats','Statistiques et rapport de course'],['perso','👤 Perso','Votre planning personnel avec vos horaires'],['pilots','👥 Équipage','Gérer les pilotes: noms, couleurs, badges'],['legend','📖 Aide','Guide complet d\'utilisation de l\'application']];
 
@@ -3343,8 +3579,7 @@
               {canEdit && (
                 <div style={{marginTop:'20px',display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center',padding:'12px',background:'rgba(0,0,0,0.3)',borderRadius:'8px'}}>
                   <span className="help-tooltip" data-help="VALIDER ÉQUIPAGE - Confirme la liste des pilotes actifs pour cette course"><button className={'btn ' + (team.pilotsValidated ? 'btn-ghost' : 'btn-success')} onClick={() => updateTeam({ pilotsValidated: !team.pilotsValidated })}>{team.pilotsValidated ? '✓ Équipage validé' : '✓ VALIDER ÉQUIPAGE'}</button></span>
-                  <span className="help-tooltip" data-help="GÉNÉRER - Crée automatiquement le planning des relais selon vos paramètres"><button className="btn btn-primary" onClick={handleGenerate} disabled={!team.pilotsValidated || !team.settings.validated} style={{opacity: (!team.pilotsValidated || !team.settings.validated) ? 0.5 : 1}}>⚡ GÉNÉRER PLANNING</button></span>
-                  {(!team.pilotsValidated || !team.settings.validated) && <span style={{fontSize:'10px',color:'var(--red)'}}>⚠️ {!team.pilotsValidated ? 'Validez l\'équipage' : 'Validez les paramètres'}</span>}
+                  <span className="help-tooltip" data-help="GÉNÉRER - Crée automatiquement le planning des relais selon vos paramètres"><button className="btn btn-primary" onClick={handleGenerate} disabled={chronoState.isRunning || chronoState.elapsed > 0 || !team.pilotsValidated || !team.settings.validated} style={{opacity: (chronoState.isRunning || chronoState.elapsed > 0) ? 0.3 : 1}}>⚡ GÉNÉRER PLANNING</button></span>
                 </div>
               )}
             </div>
@@ -3776,8 +4011,23 @@
                                   <td className="mono" style={{textAlign:'center',fontSize:'11px',color:'var(--text-dim)'}}>{stint.fuelLoad}L</td>
                                   <td className="mono" style={{textAlign:'center',fontSize:'11px',color:'var(--text-dim)'}}>{formatDur(stint.totalTimeSec)}</td>
                                   <td style={{textAlign:'center',color:'var(--text-dim)'}}>{stint.tireChange && idx < team.stints.length - 1 ? '✓' : '-'}</td>
-                                  <td className="mono" style={{textAlign:'center',fontSize:'10px',color: stint.realStintTime ? 'var(--cyan)' : 'var(--text-dim)'}}>{stint.realStintTime || '-'}</td>
-                                  <td>{stint.incidentTime > 0 ? <span style={{color:'var(--red)',fontSize:'10px'}}>+{stint.incidentTime}s</span> : '-'}</td>
+                                  <td className="mono" style={{textAlign:'center',fontSize:'10px'}}>
+                                    {canEdit ? (
+                                      <div style={{position:'relative',display:'inline-block'}}>
+                                        <input type="text" className="planning-input mono" style={{width:'42px',background: !stint.realStintTime ? 'rgba(240,136,62,0.2)' : 'rgba(6,182,212,0.1)',borderColor: !stint.realStintTime ? 'var(--orange)' : 'var(--cyan)'}} placeholder="mm:ss" value={stint.realStintTime || ''} onChange={e => updateStint(idx, { realStintTime: e.target.value })} />
+                                        {!stint.realStintTime && <span style={{position:'absolute',top:'-4px',right:'-2px',fontSize:'10px',color:'var(--orange)',fontWeight:'bold'}}>!</span>}
+                                      </div>
+                                    ) : <span style={{color: stint.realStintTime ? 'var(--cyan)' : 'var(--text-dim)'}}>{stint.realStintTime || '-'}</span>}
+                                  </td>
+                                  <td>
+                                    {canEdit ? (
+                                      <div style={{display:'flex',gap:'2px',alignItems:'center'}}>
+                                        <input type="number" className="planning-input" style={{width:'28px',background: stint.incidentTime > 0 ? 'rgba(248,81,73,0.2)' : undefined,borderColor: stint.incidentTime > 0 ? 'var(--red)' : undefined}} placeholder="0" min="0" value={stint.incidentTime || ''} onChange={e => updateStint(idx, { incidentTime: parseInt(e.target.value) || 0 })} />
+                                        <span style={{fontSize:'9px',color:'var(--text-dim)'}}>s</span>
+                                        {stint.incidentTime > 0 && <span style={{fontSize:'10px',color:'var(--red)'}}>⚠</span>}
+                                      </div>
+                                    ) : (stint.incidentTime > 0 ? <span style={{color:'var(--red)',fontSize:'10px'}}>+{stint.incidentTime}s</span> : '-')}
+                                  </td>
                                   {canEdit && <td><button className="btn btn-ghost btn-sm" style={{padding:'2px 6px',fontSize:'9px',opacity:0.6}} onClick={() => handleToggleStint(idx)} title="Dévalider">↩</button></td>}
                                 </tr>
                               );
@@ -3897,8 +4147,8 @@
                             <td className="mono" style={{textAlign:'center',fontWeight:'600',fontSize:'11px'}}><span className="help-tooltip" data-help="ESSENCE: Litres nécessaires pour ce relais. Calculé auto: Tours × Conso/tour. Si dépasse le réservoir = danger!">{(() => { const needed = Math.ceil(stint.laps * (stint.effectiveCons || 3.1) * 1.03); const tank = team.settings.tankCapacity || 70; const isOverTank = needed > tank; return <span style={{color: isOverTank ? 'var(--red)' : 'var(--cyan)'}}>{stint.fuelLoad}L{isOverTank && <span title="Dépasse le réservoir!"> ⚠️</span>}</span>; })()}</span></td>
                             <td className="mono" style={{textAlign:'center',fontWeight:'600',color:'var(--gold)',fontSize:'11px'}}><span className="help-tooltip" data-help="DURÉE: Temps total du relais en piste. Calculé: Tours × Temps/tour. Plus c'est long, plus le pilote fatigue">{formatDur(stint.totalTimeSec)}</span></td>
                             <td style={{textAlign:'center'}}><span className="help-tooltip" data-help="CHANGER PNEUS: ✓=On change les pneus à cet arrêt (+25sec). Décocher si double-stint ou économie de temps">{canEdit && !isCompleted && idx < team.stints.length - 1 ? <input type="checkbox" checked={stint.tireChange !== false} onChange={e => updateStint(idx, { tireChange: e.target.checked })} style={{width:'14px',height:'14px'}} /> : (stint.tireChange && idx < team.stints.length - 1 ? <span style={{color:'var(--green)'}}>✓</span> : <span style={{color:'var(--text-dim)'}}>-</span>)}</span></td>
-                            <td style={{textAlign:'center'}}><span className="help-tooltip" data-help="TEMPS RÉEL: Entrez le temps RÉEL du relais après passage (mm:ss). Permet de comparer prévu vs réel et ajuster">{canEdit ? <input type="text" className="planning-input mono" style={{width:'42px'}} placeholder="mm:ss" value={stint.realStintTime || ''} onChange={e => updateStint(idx, { realStintTime: e.target.value })} /> : <span className="mono" style={{fontSize:'10px'}}>{stint.realStintTime || '-'}</span>}</span></td>
-                            <td><span className="help-tooltip" data-help="INCIDENT: Secondes perdues (FCY, SC, pénalité, crash). Cliquez ACTUALISER après pour recalculer les horaires suivants">{canEdit ? <div style={{display:'flex',gap:'2px',alignItems:'center'}}><input type="number" className="planning-input" style={{width:'28px'}} placeholder="0" min="0" value={stint.incidentTime || ''} onChange={e => updateStint(idx, { incidentTime: parseInt(e.target.value) || 0 })} /><span style={{fontSize:'9px',color:'var(--text-dim)'}}>s</span></div> : (stint.incidentTime > 0 ? <span style={{color:'var(--red)',fontSize:'10px'}}>+{stint.incidentTime}s</span> : '-')}</span></td>
+                            <td style={{textAlign:'center'}}><span className="help-tooltip" data-help="TEMPS RÉEL: Entrez le temps RÉEL du relais après passage (mm:ss). Permet de comparer prévu vs réel et ajuster">{canEdit ? <div style={{position:'relative',display:'inline-block'}}><input type="text" className="planning-input mono" style={{width:'42px',background: stint.completed && !stint.realStintTime ? 'rgba(240,136,62,0.2)' : undefined,borderColor: stint.completed && !stint.realStintTime ? 'var(--orange)' : undefined}} placeholder="mm:ss" value={stint.realStintTime || ''} onChange={e => updateStint(idx, { realStintTime: e.target.value })} />{stint.completed && !stint.realStintTime && <span style={{position:'absolute',top:'-4px',right:'-2px',fontSize:'10px',color:'var(--orange)',fontWeight:'bold'}}>!</span>}</div> : <span className="mono" style={{fontSize:'10px'}}>{stint.realStintTime || '-'}</span>}</span></td>
+                            <td><span className="help-tooltip" data-help="INCIDENT: Secondes perdues (FCY, SC, pénalité, crash). Cliquez ACTUALISER après pour recalculer les horaires suivants">{canEdit ? <div style={{display:'flex',gap:'2px',alignItems:'center'}}><input type="number" className="planning-input" style={{width:'28px',background: stint.incidentTime > 0 ? 'rgba(248,81,73,0.2)' : undefined,borderColor: stint.incidentTime > 0 ? 'var(--red)' : undefined}} placeholder="0" min="0" value={stint.incidentTime || ''} onChange={e => updateStint(idx, { incidentTime: parseInt(e.target.value) || 0 })} /><span style={{fontSize:'9px',color:'var(--text-dim)'}}>s</span>{stint.incidentTime > 0 && <span style={{fontSize:'10px',color:'var(--red)'}}>⚠</span>}</div> : (stint.incidentTime > 0 ? <span style={{color:'var(--red)',fontSize:'10px'}}>+{stint.incidentTime}s</span> : '-')}</span></td>
                             {canEdit && <td><span className="help-tooltip" data-help="VALIDER: ✓=Marquer ce relais comme terminé. ↩=Annuler si erreur. Les relais validés ne peuvent plus être modifiés"><button className={isCompleted ? 'btn btn-ghost btn-sm' : 'btn btn-success btn-sm'} style={{padding:'2px 6px',fontSize:'9px',opacity: isCompleted ? 0.6 : 1}} onClick={() => handleToggleStint(idx)} title={isCompleted ? 'Cliquez pour dévalider' : 'Cliquez pour valider'}>{isCompleted ? '↩' : '✓'}</button></span></td>}
                           </tr>
                         );
