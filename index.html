@@ -442,7 +442,7 @@
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
     // ========== CONFIGURATION ==========
-    const VER = '18.17', SKEY = 'agp-v18';
+    const VER = '18.20', SKEY = 'agp-v18';
     
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyCPNMbkjte9jY9jMU6Nk3y7sOEOTEn2_6k",
@@ -1373,12 +1373,62 @@
     
     // THEME SELECTOR with team themes
     const ThemeSelector = ({ currentTheme, onThemeChange }) => {
+      const [isOpen, setIsOpen] = useState(false);
+      const currentThemeData = THEMES.find(t => t.id === currentTheme) || THEMES[0];
+      
       return (
-        <div className="theme-selector" title="Changer le thème" style={{display:'flex',alignItems:'center',gap:'3px'}}>
-          <span style={{fontSize:'10px',marginRight:'4px'}}>🎨</span>
-          {THEMES.map(theme => (
-            <button key={theme.id} className={'theme-btn theme-btn-' + theme.id + (currentTheme === theme.id ? ' active' : '')} onClick={() => onThemeChange(theme.id)} title={theme.name} />
-          ))}
+        <div style={{position:'relative'}}>
+          <button 
+            className="btn btn-ghost btn-sm" 
+            onClick={() => setIsOpen(!isOpen)}
+            style={{display:'flex',alignItems:'center',gap:'4px',padding:'4px 8px'}}
+            title="Changer le thème"
+          >
+            <span style={{fontSize:'12px'}}>🎨</span>
+            <div className={'theme-btn theme-btn-' + currentTheme} style={{width:'16px',height:'16px',borderRadius:'50%',border:'2px solid var(--border)'}} />
+            <span style={{fontSize:'9px',color:'var(--text-muted)'}}>{isOpen ? '▲' : '▼'}</span>
+          </button>
+          {isOpen && (
+            <div style={{
+              position:'absolute',
+              top:'100%',
+              right:0,
+              marginTop:'4px',
+              background:'var(--bg-card)',
+              border:'1px solid var(--border)',
+              borderRadius:'10px',
+              padding:'8px',
+              zIndex:1000,
+              minWidth:'120px',
+              boxShadow:'0 4px 20px rgba(0,0,0,0.5)'
+            }}>
+              <div style={{fontSize:'9px',color:'var(--text-muted)',marginBottom:'6px',textAlign:'center'}}>THÈMES</div>
+              <div style={{display:'grid',gap:'4px'}}>
+                {THEMES.map(theme => (
+                  <button 
+                    key={theme.id} 
+                    onClick={() => { onThemeChange(theme.id); setIsOpen(false); }}
+                    style={{
+                      display:'flex',
+                      alignItems:'center',
+                      gap:'8px',
+                      padding:'6px 10px',
+                      background: currentTheme === theme.id ? 'rgba(88,166,255,0.2)' : 'transparent',
+                      border: currentTheme === theme.id ? '1px solid var(--blue)' : '1px solid transparent',
+                      borderRadius:'6px',
+                      cursor:'pointer',
+                      width:'100%',
+                      textAlign:'left'
+                    }}
+                  >
+                    <div className={'theme-btn theme-btn-' + theme.id} style={{width:'18px',height:'18px',borderRadius:'50%',border:'2px solid var(--border)',flexShrink:0}} />
+                    <span style={{fontSize:'11px',color: currentTheme === theme.id ? 'var(--blue)' : 'var(--text)',fontWeight: currentTheme === theme.id ? '600' : '400'}}>{theme.name}</span>
+                    {currentTheme === theme.id && <span style={{marginLeft:'auto',fontSize:'10px',color:'var(--green)'}}>✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       );
     };
@@ -2625,7 +2675,7 @@
       
       return (
         <div className="card" style={{padding:'16px'}}>
-          <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'12px'}}>
             <span style={{fontSize:'28px'}}>💬</span>
             <div style={{flex:1}}>
               <div style={{fontWeight:'800',fontSize:'16px',color:'var(--cyan)'}}>STORIES - ÉVÉNEMENTS COURSE</div>
@@ -2634,6 +2684,21 @@
             <div style={{display:'flex',gap:'4px'}}>
               <button onClick={() => setViewMode('timeline')} className={viewMode === 'timeline' ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} style={{padding:'4px 8px',fontSize:'10px'}}>📋 Timeline</button>
               <button onClick={() => setViewMode('byPilot')} className={viewMode === 'byPilot' ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} style={{padding:'4px 8px',fontSize:'10px'}}>👤 Par Pilote</button>
+            </div>
+          </div>
+          
+          {/* EXPLICATION DU SYSTÈME STORIES */}
+          <div style={{marginBottom:'16px',padding:'10px 14px',background:'linear-gradient(135deg, rgba(6,182,212,0.1), rgba(163,113,247,0.1))',borderRadius:'10px',border:'1px solid var(--cyan)',borderLeft:'4px solid var(--cyan)'}}>
+            <div style={{display:'flex',alignItems:'flex-start',gap:'10px'}}>
+              <span style={{fontSize:'20px'}}>📊</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:'11px',fontWeight:'700',color:'var(--cyan)',marginBottom:'4px'}}>À QUOI SERVENT LES STORIES ?</div>
+                <div style={{fontSize:'10px',color:'var(--text-muted)',lineHeight:'1.5'}}>
+                  Les événements associés à un <b style={{color:'var(--text)'}}>pilote</b> apparaissent dans le <b style={{color:'var(--gold)'}}>📋 Rapport post-course</b> (Stats → Rapport). 
+                  Sélectionnez un pilote lors de l'ajout pour enrichir ses statistiques personnelles. 
+                  Les événements sans pilote sont des notes générales d'équipe.
+                </div>
+              </div>
             </div>
           </div>
           
@@ -2921,17 +2986,40 @@
 
           <Section id="stories" title="ONGLET STORIES" icon="💬" color="6,182,212">
             <p><b>Mémoires d'équipe - Timeline de la course</b></p>
-            <p>• Notez les moments forts en temps réel</p>
-            <p>• Visible par tous (équipe + spectateurs)</p>
-            <p>• Créez des souvenirs : "Pneus record", "P3 !", "Finish !"</p>
+            <p style={{marginTop:'8px',fontWeight:'700',color:'var(--gold)'}}>📊 IMPACT SUR LES STATISTIQUES :</p>
+            <p>Les stories associées à un <b style={{color:'var(--cyan)'}}>pilote</b> apparaissent dans le <b>📋 Rapport post-course</b> (Stats → Rapport).</p>
+            <p style={{marginTop:'6px'}}>• <b style={{color:'var(--green)'}}>Avec pilote</b> : L'événement est lié au pilote et enrichit ses stats personnelles</p>
+            <p>• <b style={{color:'var(--text-muted)'}}>Sans pilote</b> : Note générale d'équipe (n'apparaît pas dans les stats pilote)</p>
+            <p style={{marginTop:'10px',fontWeight:'700',color:'var(--cyan)'}}>🏷️ CATÉGORIES :</p>
+            <p>• ⭐ <b>Moment fort</b> : Exploits, records, moments mémorables</p>
+            <p>• 😂 <b>Fun</b> : Anecdotes, moments drôles</p>
+            <p>• 💥 <b>Drama</b> : Incidents, problèmes, tensions</p>
+            <p>• 🎯 <b>Stratégie</b> : Décisions tactiques, changements de plan</p>
+            <p>• 🌙 <b>Nuit</b> : Événements nocturnes</p>
+            <p>• 🔧 <b>Technique</b> : Problèmes mécaniques, réglages</p>
+            <p style={{marginTop:'10px',fontWeight:'700',color:'var(--purple)'}}>👁️ VUES DISPONIBLES :</p>
+            <p>• <b>📋 Timeline</b> : Tous les événements par ordre chronologique</p>
+            <p>• <b>👤 Par Pilote</b> : Événements groupés par pilote</p>
+            <p style={{marginTop:'10px',padding:'8px',background:'rgba(63,185,80,0.2)',borderRadius:'6px'}}>
+              💡 <b>ASTUCE</b> : Pour que les événements enrichissent le rapport, sélectionnez toujours un pilote lors de l'ajout !
+            </p>
           </Section>
 
           <Section id="rapport" title="RAPPORT POST-COURSE" icon="🏁" color="212,175,55">
             <p><b>Dans l'onglet 🎯 Stats → bouton 📋 Rapport</b></p>
-            <p>• 🏆 <b>MVP</b> : Plus de tours</p>
-            <p>• 🦉 <b>HIBOU</b> : Héros de nuit</p>
-            <p>• ✨ Stints parfaits (sans incident)</p>
-            <p>• 💬 Moments forts</p>
+            <p style={{marginTop:'8px',fontWeight:'700',color:'var(--cyan)'}}>🏅 RÉCOMPENSES :</p>
+            <p>• 🏆 <b>MVP</b> : Pilote avec le plus de tours</p>
+            <p>• 🦉 <b>HIBOU</b> : Héros des relais de nuit</p>
+            <p>• ⚡ <b>MEILLEUR STINT</b> : Relais le plus rapide</p>
+            <p>• 💪 <b>IRON MAN</b> : Plus de stints consécutifs</p>
+            <p style={{marginTop:'10px',fontWeight:'700',color:'var(--green)'}}>📈 STATISTIQUES :</p>
+            <p>• Tours totaux, relais complétés, temps total</p>
+            <p>• Stints parfaits (sans incident)</p>
+            <p>• Relais de nuit effectués</p>
+            <p>• Essence consommée</p>
+            <p style={{marginTop:'10px',fontWeight:'700',color:'var(--cyan)'}}>💬 ÉVÉNEMENTS PAR PILOTE :</p>
+            <p>• Les stories associées à un pilote sont affichées dans sa section</p>
+            <p>• Timeline des 5 derniers événements de l'équipe</p>
           </Section>
 
           <Section id="checklist" title="CHECK-LIST PRÉ-COURSE" icon="✅" color="63,185,80">
@@ -3001,6 +3089,23 @@
       const [simulationResult, setSimulationResult] = useState(null);
       const [showCompletedStints, setShowCompletedStints] = useState(false); // Relais terminés masqués par défaut
       const [showMobileOptions, setShowMobileOptions] = useState(false); // Options mobile cachées par défaut
+      const [isFullscreen, setIsFullscreen] = useState(false); // Mode plein écran
+      
+      // Fonction toggle fullscreen
+      const toggleFullscreen = useCallback(() => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(err => console.warn('Fullscreen error:', err));
+        } else {
+          document.exitFullscreen().then(() => setIsFullscreen(false)).catch(err => console.warn('Exit fullscreen error:', err));
+        }
+      }, []);
+      
+      // Écouter les changements de fullscreen (Échap)
+      useEffect(() => {
+        const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      }, []);
       
       // Theme
       const [currentTheme, setCurrentTheme] = useState(() => { try { return localStorage.getItem(SKEY + '-theme') || 'dark'; } catch { return 'dark'; } });
@@ -3416,11 +3521,6 @@
             <div className={'mobile-header-collapsible ' + (showMobileOptions ? 'show' : '')} style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'10px'}}>
               <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
                 <Logo size={40} />
-                {/* Section choix équipe - plus visible */}
-                <div style={{display:'flex',alignItems:'center',gap:'8px',padding:'6px 12px',background:'linear-gradient(135deg, rgba(88,166,255,0.15), rgba(163,113,247,0.15))',borderRadius:'10px',border:'1px solid rgba(88,166,255,0.3)'}}>
-                  <span style={{fontSize:'10px',color:'var(--cyan)',fontWeight:'600'}}>👥 ÉQUIPE :</span>
-                  <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>{TEAMS.map(name => <button key={name} className={'tab ' + (teams.findIndex(t => t.name === name) === activeIdx ? 'active' : '')} style={{padding:'6px 12px',fontSize:'11px',fontWeight:'600'}} onClick={() => setActiveIdx(teams.findIndex(t => t.name === name))}>{name}</button>)}</div>
-                </div>
               </div>
               {/* Phrase anecdote au centre - DESKTOP ONLY (mobile c'est en haut) */}
               <div className="desktop-only-photo" style={{flex:'1',minWidth:'200px',maxWidth:'500px'}}>
@@ -3436,6 +3536,7 @@
                 {isSpectator && <span className="badge badge-purple">SPECTATEUR</span>}
                 {isCreator && <button className="btn btn-ghost btn-sm" onClick={() => setShowPwdModal(true)}>🔐</button>}
                 <button className={'btn btn-sm ' + (helpMode ? 'btn-cyan' : 'btn-ghost')} onClick={() => setHelpMode(!helpMode)} title="Activer/désactiver l'aide contextuelle">{helpMode ? '❓ ON' : '❓'}</button>
+                <button className={'btn btn-sm ' + (isFullscreen ? 'btn-success' : 'btn-ghost')} onClick={toggleFullscreen} title={isFullscreen ? "Quitter le plein écran (Échap)" : "Plein écran"}>{isFullscreen ? '🔲' : '⛶'}</button>
                 <button className="btn btn-ghost btn-sm" onClick={onLogout}>↩️</button>
               </div>
             </div>
