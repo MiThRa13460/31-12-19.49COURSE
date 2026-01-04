@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TEAM AGP - Endurance Strategy 24h v18.16</title>
+  <title>TEAM AGP - Endurance Strategy 24h v18.26</title>
   <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -269,8 +269,8 @@
     .timeline-legend { display: flex; justify-content: center; gap: 20px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
     .timeline-legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); }
     .help-tooltip { position: relative; display: inline-block; }
-    .help-tooltip[data-help]::after { content: attr(data-help); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #ff6b00; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 99999; margin-bottom: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.5); max-width: 220px; min-width: 120px; text-align: center; line-height: 1.4; }
-    .help-tooltip[data-help]::before { content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #ff6b00; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 99999; margin-bottom: 2px; }
+    .help-tooltip[data-help]::after { content: attr(data-help); position: absolute; top: 100%; left: 50%; transform: translateX(-50%); background: #ff6b00; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 999999; margin-top: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.5); max-width: 220px; min-width: 120px; text-align: center; line-height: 1.4; }
+    .help-tooltip[data-help]::before { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-bottom-color: #ff6b00; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 999999; margin-top: 2px; }
     table { overflow: visible !important; }
     th, td { overflow: visible !important; position: relative; }
     .card { overflow: visible !important; }
@@ -442,7 +442,7 @@
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
     // ========== CONFIGURATION ==========
-    const VER = '18.20', SKEY = 'agp-v18';
+    const VER = '18.21', SKEY = 'agp-v18';
     
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyCPNMbkjte9jY9jMU6Nk3y7sOEOTEn2_6k",
@@ -1398,7 +1398,7 @@
               border:'1px solid var(--border)',
               borderRadius:'10px',
               padding:'8px',
-              zIndex:1000,
+              zIndex:9999,
               minWidth:'120px',
               boxShadow:'0 4px 20px rgba(0,0,0,0.5)'
             }}>
@@ -1563,7 +1563,7 @@
     // Format ms vers temps "M:SS.mmm" (alias)
     const formatMsToTime = formatLapTime;
 
-    const defaultTeams = () => TEAMS.map(name => ({ id: uid(), name, pilots: createPilots(name), stints: [], settings: createSettings(), raceStartISO: null, pilotsValidated: false, originalStints: null }));
+    const defaultTeams = () => TEAMS.map(name => ({ id: uid(), name, pilots: createPilots(name), stints: [], settings: createSettings(), raceStartISO: null, pilotsValidated: false, originalStints: null, memorizedStints: null }));
 
     // ========== LOGIN ==========
     const LoginPage = ({ onLogin, passwords, sessionId, onJoinSession }) => {
@@ -2950,7 +2950,7 @@
             <p style={{marginTop:'10px'}}><b>Actions :</b></p>
             <p>• <b>✓ :</b> Marquer relais terminé (grise la ligne)</p>
             <p>• <b>🗑️ :</b> Supprimer le relais</p>
-            <p>• <b>🔄 Actualiser :</b> Recalculer les horaires avec les incidents</p>
+            <p>• <b>🔄 Actualiser :</b> Régénère le planning complet avec les paramètres actuels (dans l'onglet Params)</p>
           </Section>
 
           <Section id="chrono" title="CHRONOMÈTRE" icon="⏱️" color="255,215,0">
@@ -3053,7 +3053,7 @@
             <p>6️⃣ Créateur lance le chrono ▶️ au départ réel</p>
             <p>7️⃣ Après chaque relais : marquer ✓ + temps réel</p>
             <p>8️⃣ Si incident : entrer les secondes perdues/gagnées</p>
-            <p>9️⃣ Cliquer 🔄 Actualiser pour recalculer</p>
+            <p>9️⃣ Aller dans Params → 🔄 Actualiser pour appliquer les changements de paramètres</p>
             <p style={{marginTop:'10px',fontWeight:'700',color:'var(--cyan)'}}>CONSEILS :</p>
             <p>• Garder l'app ouverte - sync temps réel</p>
             <p>• Utiliser "Ma Vue" pour chaque pilote</p>
@@ -3130,6 +3130,7 @@
       
       const [activeIdx, setActiveIdx] = useState(() => { if (auth.type === 'team' && auth.teams && auth.teams[0]) { const idx = TEAMS.indexOf(auth.teams[0]); return idx >= 0 ? idx : 0; } return 0; });
       const [mainTab, setMainTab] = useState('planning');
+      const [stintsHistory, setStintsHistory] = useState({}); // Historique des modifications par équipe: {teamName: [snapshot1, snapshot2, ...]}
       const chronoIntervalRef = useRef(null);
       const firebaseRef = useRef(null);
       const isLocalWriteRef = useRef(false);
@@ -3202,7 +3203,8 @@
               setTeams(prevTeams => {
                 const teamIdx = prevTeams.findIndex(t => t.name === teamName); if (teamIdx === -1) return prevTeams;
                 const baseSettings = createSettings(); const remoteSettings = remoteTeam.settings || {};
-                const updatedTeam = { ...remoteTeam, pilots: remoteTeam.pilots || [], stints: (remoteTeam.stints || []).map(s => ({ ...s, tireChange: s.tireChange !== undefined ? s.tireChange : true })), settings: { ...baseSettings, ...remoteSettings, comboTimes: { ...baseSettings.comboTimes, ...(remoteSettings.comboTimes || {}) }, comboCons: { ...baseSettings.comboCons, ...(remoteSettings.comboCons || {}) }, pilotComboTimes: { ...(remoteSettings.pilotComboTimes || {}) }, pilotComboCons: { ...(remoteSettings.pilotComboCons || {}) }, tireChangeSec: remoteSettings.tireChangeSec || baseSettings.tireChangeSec, defaultTireChange: remoteSettings.defaultTireChange !== undefined ? remoteSettings.defaultTireChange : baseSettings.defaultTireChange, tireChangeEvery: remoteSettings.tireChangeEvery || baseSettings.tireChangeEvery, activeCombos: remoteSettings.activeCombos || baseSettings.activeCombos, tireType: remoteSettings.tireType || baseSettings.tireType, defaultMixture: remoteSettings.defaultMixture || baseSettings.defaultMixture, tankCapacity: remoteSettings.tankCapacity || baseSettings.tankCapacity, tanksPerStint: remoteSettings.tanksPerStint || baseSettings.tanksPerStint, pitStopSec: remoteSettings.pitStopSec || baseSettings.pitStopSec, pitLaneTime: remoteSettings.pitLaneTime || baseSettings.pitLaneTime, durationHours: remoteSettings.durationHours || baseSettings.durationHours, raceStartTime: remoteSettings.raceStartTime || baseSettings.raceStartTime } };
+                const localTeam = prevTeams[teamIdx];
+                const updatedTeam = { ...remoteTeam, pilots: remoteTeam.pilots || [], stints: (remoteTeam.stints || []).map(s => ({ ...s, tireChange: s.tireChange !== undefined ? s.tireChange : true })), originalStints: remoteTeam.originalStints || localTeam.originalStints || null, memorizedStints: remoteTeam.memorizedStints || localTeam.memorizedStints || null, settings: { ...baseSettings, ...remoteSettings, comboTimes: { ...baseSettings.comboTimes, ...(remoteSettings.comboTimes || {}) }, comboCons: { ...baseSettings.comboCons, ...(remoteSettings.comboCons || {}) }, pilotComboTimes: { ...(remoteSettings.pilotComboTimes || {}) }, pilotComboCons: { ...(remoteSettings.pilotComboCons || {}) }, tireChangeSec: remoteSettings.tireChangeSec || baseSettings.tireChangeSec, defaultTireChange: remoteSettings.defaultTireChange !== undefined ? remoteSettings.defaultTireChange : baseSettings.defaultTireChange, tireChangeEvery: remoteSettings.tireChangeEvery || baseSettings.tireChangeEvery, activeCombos: remoteSettings.activeCombos || baseSettings.activeCombos, tireType: remoteSettings.tireType || baseSettings.tireType, defaultMixture: remoteSettings.defaultMixture || baseSettings.defaultMixture, tankCapacity: remoteSettings.tankCapacity || baseSettings.tankCapacity, tanksPerStint: remoteSettings.tanksPerStint || baseSettings.tanksPerStint, pitStopSec: remoteSettings.pitStopSec || baseSettings.pitStopSec, pitLaneTime: remoteSettings.pitLaneTime || baseSettings.pitLaneTime, durationHours: remoteSettings.durationHours || baseSettings.durationHours, raceStartTime: remoteSettings.raceStartTime || baseSettings.raceStartTime } };
                 const newTeams = [...prevTeams]; newTeams[teamIdx] = updatedTeam; return newTeams;
               });
               setSyncStatus('connected');
@@ -3262,7 +3264,7 @@
             updateTeam({ stints: recalced, raceStartISO: raceStart.toISOString() }); setConfirm(null);
           } }); return;
         }
-        if (isRaceRunning) { setConfirm({ title: '⚠️ CHRONO EN COURS', message: 'Générer un nouveau planning ?', onConfirm: () => { const startTime = team.settings.raceStartTime || '14:00'; const [startH, startM] = startTime.split(':').map(Number); const raceStart = new Date(); raceStart.setHours(startH, startM, 0, 0); const newStints = genPlanning(team.pilots || [], team.settings); updateTeam({ stints: newStints, raceStartISO: raceStart.toISOString() }); setConfirm(null); } }); return; }
+        if (isRaceRunning) { setConfirm({ title: '⚠️ CHRONO EN COURS', message: 'Générer un nouveau planning ?', onConfirm: () => { const startTime = team.settings.raceStartTime || '14:00'; const [startH, startM] = startTime.split(':').map(Number); const raceStart = new Date(); raceStart.setHours(startH, startM, 0, 0); const newStints = genPlanning(team.pilots || [], team.settings); updateTeam({ stints: newStints, originalStints: JSON.parse(JSON.stringify(newStints)), memorizedStints: null, raceStartISO: raceStart.toISOString() }); setConfirm(null); } }); return; }
         // Demander confirmation si des stints existent déjà
         if (team.stints && team.stints.length > 0) {
           const completedCount = team.stints.filter(s => s.completed).length;
@@ -3288,97 +3290,105 @@
             message: 'Un planning existe déjà (' + team.stints.length + ' relais). Écraser et régénérer ?',
             onConfirm: () => {
               const startTime = team.settings.raceStartTime || '14:00'; const [startH, startM] = startTime.split(':').map(Number); const raceStart = new Date(); raceStart.setHours(startH, startM, 0, 0);
-              const newStints = genPlanning(team.pilots || [], team.settings); updateTeam({ stints: newStints, raceStartISO: raceStart.toISOString() }); setConfirm(null);
+              const newStints = genPlanning(team.pilots || [], team.settings); updateTeam({ stints: newStints, originalStints: JSON.parse(JSON.stringify(newStints)), memorizedStints: null, raceStartISO: raceStart.toISOString() }); setConfirm(null);
             }
           });
           return;
         }
         const startTime = team.settings.raceStartTime || '14:00'; const [startH, startM] = startTime.split(':').map(Number); const raceStart = new Date(); raceStart.setHours(startH, startM, 0, 0);
-        const newStints = genPlanning(team.pilots || [], team.settings); updateTeam({ stints: newStints, raceStartISO: raceStart.toISOString() });
-      };
-      
-      // Fonction Revenir - protège les stints complétés
-      const handleRevenir = () => {
-        if (!team || !team.originalStints || team.originalStints.length === 0) return;
-        const completedStints = (team.stints || []).filter(s => s.completed);
-        
-        if (completedStints.length > 0) {
-          setConfirm({
-            title: '⚠️ RELAIS VALIDÉS',
-            message: completedStints.length + ' relais déjà validés ne seront PAS modifiés. Revenir pour les relais restants ?',
-            onConfirm: () => {
-              const completedIds = completedStints.map(s => s.number);
-              const restoredNonCompleted = team.originalStints
-                .filter(s => !completedIds.includes(s.number))
-                .map(s => ({ ...s, completed: false }));
-              const merged = [...completedStints, ...restoredNonCompleted].sort((a, b) => a.number - b.number);
-              const recalced = recalcPlanning(merged, team.pilots, team.settings, team.raceStartISO);
-              updateTeam({ stints: recalced });
-              setConfirm(null);
-            }
-          });
-          return;
-        }
-        const restored = recalcPlanning(JSON.parse(JSON.stringify(team.originalStints)), team.pilots, team.settings, team.raceStartISO);
-        updateTeam({ stints: restored });
+        const newStints = genPlanning(team.pilots || [], team.settings); updateTeam({ stints: newStints, originalStints: JSON.parse(JSON.stringify(newStints)), memorizedStints: null, raceStartISO: raceStart.toISOString() });
       };
       
       const handleRecalc = () => { 
         if (!team) return;
         const settings = team.settings || createSettings();
         const pilots = team.pilots || [];
-        const currentStints = team.stints || [];
-        const completedStints = currentStints.filter(s => s.completed);
         
-        // Si pas de relais complétés, on peut régénérer tout le planning
-        if (completedStints.length === 0) {
-          const startTime = settings.raceStartTime || '14:00'; 
-          const [startH, startM] = startTime.split(':').map(Number); 
-          const raceStart = new Date(); 
-          raceStart.setHours(startH, startM, 0, 0);
-          const newStints = genPlanning(pilots, settings);
-          updateTeam({ stints: newStints, raceStartISO: raceStart.toISOString() });
-          return;
+        // ACTUALISER = Régénérer complètement le planning avec les paramètres actuels
+        // Préserver uniquement les validations (completed) des stints existants si même nombre
+        const oldCompletedMap = {};
+        if (team.stints) {
+          team.stints.forEach((s, i) => {
+            if (s.completed) oldCompletedMap[i] = true;
+          });
         }
         
-        // Sinon, garder les complétés et régénérer le reste
+        // Générer un nouveau planning complet avec les paramètres actuels
+        const newStints = genPlanning(pilots, settings);
+        
+        // Restaurer les validations si possible
+        newStints.forEach((s, i) => {
+          if (oldCompletedMap[i]) s.completed = true;
+        });
+        
         const startTime = settings.raceStartTime || '14:00';
         const [startH, startM] = startTime.split(':').map(Number);
         const raceStart = new Date();
         raceStart.setHours(startH, startM, 0, 0);
         
-        // Calculer le temps écoulé après les relais complétés
-        let elapsedByCompleted = 0;
-        completedStints.forEach(s => { elapsedByCompleted += s.totalTimeSec || 0; });
-        
-        // Générer un planning complet avec les nouveaux params
-        const fullNewStints = genPlanning(pilots, settings);
-        
-        // Trouver les relais qui couvrent le temps restant
-        let cumul = 0;
-        const remainingNewStints = fullNewStints.filter(s => { 
-          cumul += s.totalTimeSec || 0; 
-          return cumul > elapsedByCompleted; 
-        });
-        
-        // Fusionner: complétés + nouveaux relais restants
-        const mergedStints = [
-          ...completedStints,
-          ...remainingNewStints.map((s, idx) => ({ 
-            ...s, 
-            id: uid(), 
-            number: completedStints.length + idx + 1, 
-            completed: false, 
-            realStintTime: null 
-          }))
-        ];
-        
-        // Recalculer les heures
-        const recalced = recalcPlanning(mergedStints, pilots, settings, raceStart.toISOString());
-        updateTeam({ stints: recalced, raceStartISO: raceStart.toISOString() });
+        updateTeam({ stints: newStints, raceStartISO: raceStart.toISOString() });
+        clearHistory(); // Effacer l'historique après régénération
       };
       const handleSimulate = () => { if (!team) return; const strategies = compareStrategies(team.settings || createSettings(), team.pilots || []); setSimulationResult(strategies); };
-      const updateStint = (idx, changes) => { if (!team || !team.stints) return; const currentStints = [...team.stints]; const oldStint = currentStints[idx]; if (!oldStint) return; currentStints[idx] = { ...oldStint, ...changes }; const recalced = recalcPlanning(currentStints, team.pilots || [], team.settings || createSettings(), team.raceStartISO); updateTeam({ stints: recalced }); };
+      
+      // Sauvegarder l'état actuel dans l'historique avant modification
+      const pushToHistory = () => {
+        if (!team || !team.stints || team.stints.length === 0) return;
+        const teamName = team.name;
+        const snapshot = JSON.parse(JSON.stringify(team.stints));
+        setStintsHistory(prev => {
+          const teamHistory = prev[teamName] || [];
+          // Limiter à 20 entrées max
+          const newHistory = [...teamHistory, snapshot].slice(-20);
+          return { ...prev, [teamName]: newHistory };
+        });
+      };
+      
+      // Annuler la dernière modification (dépiler l'historique)
+      const handleUndo = () => {
+        if (!team) return;
+        const teamName = team.name;
+        const teamHistory = stintsHistory[teamName] || [];
+        if (teamHistory.length === 0) return;
+        
+        // Récupérer le dernier état
+        const lastSnapshot = teamHistory[teamHistory.length - 1];
+        
+        // Retirer du stack
+        setStintsHistory(prev => {
+          const newHistory = [...(prev[teamName] || [])];
+          newHistory.pop();
+          return { ...prev, [teamName]: newHistory };
+        });
+        
+        // Restaurer les stints
+        const recalced = recalcPlanning(lastSnapshot, team.pilots || [], team.settings || createSettings(), team.raceStartISO);
+        updateTeam({ stints: recalced });
+      };
+      
+      // Obtenir le nombre d'annulations disponibles
+      const getUndoCount = () => {
+        if (!team) return 0;
+        return (stintsHistory[team.name] || []).length;
+      };
+      
+      // Effacer l'historique (appelé quand on génère/actualise le planning)
+      const clearHistory = () => {
+        if (!team) return;
+        setStintsHistory(prev => ({ ...prev, [team.name]: [] }));
+      };
+      
+      const updateStint = (idx, changes) => { 
+        if (!team || !team.stints) return; 
+        // Sauvegarder l'état actuel AVANT modification
+        pushToHistory();
+        const currentStints = [...team.stints]; 
+        const oldStint = currentStints[idx]; 
+        if (!oldStint) return; 
+        currentStints[idx] = { ...oldStint, ...changes }; 
+        const recalced = recalcPlanning(currentStints, team.pilots || [], team.settings || createSettings(), team.raceStartISO); 
+        updateTeam({ stints: recalced }); 
+      };
       // handleDeleteStint supprimé - utiliser RESET créateur
       // Toggle validation relais (✓ pour valider, clic à nouveau pour dévalider)
       const handleToggleStint = (idx) => { 
@@ -3502,7 +3512,7 @@
           {showSharePanel && <SharePanel sessionId={sessionId} onJoin={handleJoinSession} onClose={() => setShowSharePanel(false)} />}
           
           {/* HEADER */}
-          <header className="card" style={{padding:'10px 14px',marginBottom:'12px'}}>
+          <header className="card" style={{padding:'10px 14px',marginBottom:'12px',position:'relative',zIndex:1000,overflow:'visible'}}>
             {/* Anecdote TOUJOURS VISIBLE - MOBILE ONLY (sur desktop c'est dans la barre) */}
             <div className="mobile-only-photo" style={{display:'none',marginBottom:'8px'}}>
               <VibeDisplay inline={true} />
@@ -3542,11 +3552,13 @@
             </div>
           </header>
 
-          <StatusBar teams={teams} elapsed={chronoState.elapsed} isRunning={chronoState.isRunning} totalSec={totalSec} activeIdx={activeIdx} onSelectTeam={setActiveIdx} />
+          <div style={{position:'relative',zIndex:1}}>
+            <StatusBar teams={teams} elapsed={chronoState.elapsed} isRunning={chronoState.isRunning} totalSec={totalSec} activeIdx={activeIdx} onSelectTeam={setActiveIdx} />
+          </div>
 
 
           {/* BARRE UNIQUE - Chrono + Tabs au milieu + Tours + Photo */}
-          <div className="card main-chrono-bar" style={{padding:'8px 12px',marginBottom:'12px'}}>
+          <div className="card main-chrono-bar" style={{padding:'8px 12px',marginBottom:'12px',position:'relative',zIndex:1}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px'}}>
               {/* Chronos à gauche */}
               <div className="chrono-display" style={{display:'flex',alignItems:'center',gap:'8px'}}>
@@ -3695,8 +3707,7 @@
               {canEdit && (
                 <div style={{display:'flex',gap:'10px',flexWrap:'wrap',marginBottom:'16px',padding:'12px',background:'rgba(0,0,0,0.3)',borderRadius:'8px',alignItems:'center'}}>
                   <span className="help-tooltip" data-help="COMPARER - Simule différentes stratégies pour trouver la meilleure"><button className="btn btn-purple" onClick={handleSimulate}>🧪 Comparer</button></span>
-                  {team.stints.length > 0 && <span className="help-tooltip" data-help="MÉMORISER - Sauvegarde le planning actuel pour pouvoir y revenir plus tard"><button className="btn btn-gold" onClick={() => updateTeam({ originalStints: JSON.parse(JSON.stringify(team.stints)) })}>📖 Mémoriser</button></span>}
-                  {team.originalStints && team.originalStints.length > 0 && <span className="help-tooltip" data-help="REVENIR - Restaure le dernier planning que vous avez mémorisé"><button className="btn btn-orange" onClick={handleRevenir}>↩️ Revenir</button></span>}
+                  {team.stints.length > 0 && <span className="help-tooltip" data-help="ACTUALISER - Régénère le planning complet avec les paramètres actuels (durée, pneus, mélange, conso)"><button className="btn btn-blue" onClick={handleRecalc}>🔄 Actualiser</button></span>}
                   <span className="help-tooltip" data-help="VALIDER - Confirme que les paramètres sont corrects pour générer le planning"><button className={'btn ' + (team.settings.validated ? 'btn-ghost' : 'btn-success')} style={{flex:1}} onClick={handleValidateSettings}>{team.settings.validated ? '✓ Paramètres validés' : '✓ VALIDER PARAMÈTRES'}</button></span>
                 </div>
               )}
@@ -4001,7 +4012,7 @@
                 
                 {/* Boutons à droite - fixe */}
                 <div style={{display:'flex',gap:'6px',flexWrap:'nowrap',flexShrink:0}}>
-                  {canEdit && (<><span className="help-tooltip" data-help="ACTUALISER - Recalcule tous les horaires en tenant compte des incidents"><button className="btn btn-ghost btn-sm" onClick={handleRecalc} disabled={!team.stints.length}>🔄 Actualiser</button></span>{team.stints.length > 0 && <span className="help-tooltip" data-help="MÉMORISER - Sauvegarde le planning actuel pour pouvoir y revenir"><button className="btn btn-gold btn-sm" onClick={() => updateTeam({ originalStints: JSON.parse(JSON.stringify(team.stints)) })}>📖 Mémoriser</button></span>}{team.originalStints && team.originalStints.length > 0 && <span className="help-tooltip" data-help="REVENIR - Restaure le dernier planning mémorisé"><button className="btn btn-orange btn-sm" onClick={handleRevenir}>↩️ Revenir</button></span>}</>)}
+                  {canEdit && getUndoCount() > 0 && <span className="help-tooltip" data-help="ANNULER - Annule la dernière modification manuelle. Cliquez plusieurs fois pour annuler plusieurs modifications"><button className="btn btn-orange btn-sm" onClick={handleUndo}>↩️ Annuler ({getUndoCount()})</button></span>}
                   <button className="btn btn-ghost btn-sm no-print" onClick={() => window.print()}>🖨️</button>
                 </div>
               </div>
@@ -4284,7 +4295,7 @@
           {mainTab === 'stats' && <StatsView teams={teams} elapsed={chronoState.elapsed} currentTeamName={auth.teamName} />}
 
           {/* PERSO */}
-          {mainTab === 'perso' && <PersonalView team={team} pilots={team.pilots} stints={team.stints} auth={auth} chronoState={chronoState} onGenerate={handleGenerate} onRecalc={handleRecalc} onSave={() => updateTeam({ originalStints: JSON.parse(JSON.stringify(team.stints)) })} canEdit={canEdit} settings={team.settings} isCreator={isCreator} onUpdatePilot={(pilotId, changes) => { const newPilots = team.pilots.map(p => p.id === pilotId ? {...p, ...changes} : p); updateTeam({ pilots: newPilots }); }} onUpdateSettings={(newSettings) => updateTeam({ settings: newSettings })} />}
+          {mainTab === 'perso' && <PersonalView team={team} pilots={team.pilots} stints={team.stints} auth={auth} chronoState={chronoState} onGenerate={handleGenerate} onRecalc={handleRecalc} onSave={() => updateTeam({ memorizedStints: JSON.parse(JSON.stringify(team.stints)) })} canEdit={canEdit} settings={team.settings} isCreator={isCreator} onUpdatePilot={(pilotId, changes) => { const newPilots = team.pilots.map(p => p.id === pilotId ? {...p, ...changes} : p); updateTeam({ pilots: newPilots }); }} onUpdateSettings={(newSettings) => updateTeam({ settings: newSettings })} />}
 
           {/* AIDE */}
           {mainTab === 'legend' && <HelpPanel isCreator={isCreator} />}
